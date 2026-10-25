@@ -255,22 +255,30 @@ const stars = document.querySelector('#stars'); const starContext = stars.getCon
 function resizeStars() { const ratio = Math.min(window.devicePixelRatio || 1, quality === 'cinematic' ? 2 : 1.5); stars.width = innerWidth * ratio; stars.height = innerHeight * ratio; stars.style.width = `${innerWidth}px`; stars.style.height = `${innerHeight}px`; starContext.setTransform(ratio, 0, 0, ratio, 0, 0); const divisor = quality === 'cinematic' ? 7 : quality === 'light' ? 22 : 12; const limit = quality === 'cinematic' ? 180 : quality === 'light' ? 42 : 90; starDots = Array.from({ length: Math.min(limit, Math.floor(innerWidth / divisor)) }, () => ({ x: Math.random() * innerWidth, y: Math.random() * innerHeight, r: Math.random() * 1.4 + .25, a: Math.random() * .6 + .2, d: Math.random() * .005 + .001, vx: (Math.random() - .5) * .075, vy: -.025 - Math.random() * .06 })); }
 function animateStars() { if (!starContext) return; starContext.clearRect(0, 0, innerWidth, innerHeight); for (const star of starDots) { star.a += star.d; star.x += star.vx; star.y += star.vy; if (star.a > .8 || star.a < .15) star.d *= -1; if (star.x < -2) star.x = innerWidth + 2; if (star.x > innerWidth + 2) star.x = -2; if (star.y < -2) star.y = innerHeight + 2; starContext.beginPath(); starContext.arc(star.x, star.y, star.r, 0, Math.PI * 2); starContext.fillStyle = `rgba(239,221,255,${star.a})`; starContext.fill(); } if (!reducedMotion) requestAnimationFrame(animateStars); else starsScheduled = false; }
 window.addEventListener('resize', () => { resizeStars(); if (currentScene === 9) drawNameConstellation(); });
+function setTimerDigit(node, value) {
+  const nextValue = pad(value);
+  if (node.textContent === nextValue) return;
+  node.textContent = nextValue;
+  if (reducedMotion || typeof node.animate !== 'function') return;
+  node.getAnimations().forEach((animation) => animation.cancel());
+  node.animate([
+    { transform: 'perspective(520px) rotateX(-82deg) rotateY(-8deg)', opacity: 0.18 },
+    { transform: 'perspective(520px) rotateX(0deg) rotateY(0deg)', opacity: 1 },
+  ], { duration: 460, easing: 'cubic-bezier(.16, 1, .3, 1)', fill: 'none' });
+}
 function updateTimers() {
   stage.querySelectorAll('[data-unit]').forEach((node) => {
     const units = node.closest('.scene-content')?.querySelectorAll('[data-unit]'); if (!units?.length) return;
     if (currentScene === 2) {
-      const target = cairoWallTimeToUTC(CONFIG.dates.firstTalk); const elapsed = elapsedSince(target); const nextValue = pad(elapsed[node.dataset.unit]);
-      if (node.textContent !== nextValue) {
-        node.textContent = nextValue;
-        if (!reducedMotion) { node.classList.remove('timer-tick'); void node.offsetWidth; node.classList.add('timer-tick'); }
-      }
+      const target = cairoWallTimeToUTC(CONFIG.dates.firstTalk); const elapsed = elapsedSince(target);
+      setTimerDigit(node, elapsed[node.dataset.unit]);
     }
     else if (currentScene === 3) {
       const timer = engagementDuration(cairoWallTimeToUTC(CONFIG.dates.engagement));
-      node.textContent = pad(timer.values[node.dataset.unit]);
+      setTimerDigit(node, timer.values[node.dataset.unit]);
       const label = document.querySelector('#engagement-count-label');
       if (label) label.textContent = timer.future ? 'العدّ التنازلي ليوم الارتباط' : 'من يوم الارتباط';
-    } else { const time = countdown(nextBirthdayTarget()); node.textContent = pad(time[node.dataset.unit]); }
+    } else { const time = countdown(nextBirthdayTarget()); setTimerDigit(node, time[node.dataset.unit]); }
   });
   const clock = document.querySelector('#cairo-clock'); if (clock) clock.textContent = formatDateTime();
 }
